@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dancer demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="dancer.js"></script>
+  <script src="rhythm.js"></script>
+  <style>
+    :root {
+      --paper: oklch(96% 0.014 80);
+      --paper-2: oklch(92% 0.02 80);
+      --ink: oklch(24% 0.02 60);
+      --ink-2: oklch(48% 0.02 60);
+      --line: oklch(84% 0.02 80);
+      --hot: oklch(62% 0.19 35);
+      --hot-2: oklch(92% 0.06 35);
+      --stage: #808080; /* CONFIG.BACKGROUND_COLOR in the experiment */
+      --font-display: "Bricolage Grotesque", "Avenir Next", sans-serif;
+      --font-body: "Nunito", "Avenir", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.5;
+      padding: 0 clamp(16px, 4vw, 48px) 80px;
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    h1, h2, h3 { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.01em; margin: 0; }
+    h1 { font-size: clamp(34px, 5vw, 56px); line-height: 1; }
+    h2 { font-size: clamp(20px, 2.4vw, 26px); }
+    h3 { font-size: 15px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); }
+    p { margin: 0; }
+    .muted { color: var(--ink-2); }
+    header { padding: 44px 0 24px; display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; }
+    header p { max-width: 52ch; margin-top: 10px; }
+    .kbd { font: 600 12px/1 var(--font-body); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 3px 6px; background: #fff; }
+
+    /* stage */
+    .stage {
+      background: var(--stage);
+      border-radius: 6px;
+      height: clamp(300px, 42vw, 440px);
+      position: relative;
+      overflow: hidden;
+    }
+    .stage .slot { position: absolute; top: 50%; transform: translate(-50%, -50%); }
+    .stage .slot svg { height: clamp(180px, 26vw, 270px); }
+    .stage .tag {
+      position: absolute; bottom: 14px; font: 600 12px/1 var(--font-body); letter-spacing: 0.06em; text-transform: uppercase;
+      color: rgba(255,255,255,0.75);
+    }
+    .stage .tag.l { left: 16px; } .stage .tag.r { right: 16px; }
+
+    .transport {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px;
+      padding: 18px 0 10px; border-bottom: 1px solid var(--line);
+    }
+    .play {
+      font: 800 16px var(--font-display); color: #fff; background: var(--hot); border: 0; border-radius: 999px;
+      padding: 12px 24px; cursor: pointer; min-width: 110px;
+    }
+    .play:hover { filter: brightness(1.08); }
+    .field { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+    .field .v { font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; color: var(--ink-2); }
+    input[type=range] { accent-color: var(--hot); width: 130px; }
+    select, .seg button {
+      font: 600 14px var(--font-body); color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px;
+    }
+    .seg { display: inline-flex; border-radius: 6px; overflow: hidden; }
+    .seg button { border-radius: 0; cursor: pointer; margin-left: -1px; }
+    .seg button[aria-pressed=true] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .beats { display: flex; gap: 6px; margin-left: auto; }
+    .beats i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); display: block; transition: transform 60ms; }
+    .beats i.strong { background: var(--ink-2); }
+    .beats i.on { background: var(--hot); transform: scale(1.35); }
+
+    /* studio */
+    section { margin-top: 56px; }
+    section > h2 { margin-bottom: 4px; }
+    section > .lede { max-width: 60ch; margin-bottom: 22px; }
+    .studio { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 32px; align-items: start; }
+    .preview { background: var(--stage); border-radius: 6px; padding: 24px 12px 12px; display: grid; place-items: center; position: sticky; top: 16px; }
+    .preview svg { height: 250px; }
+    .preview .actions { display: flex; gap: 8px; margin-top: 16px; }
+    .btn {
+      font: 700 13px var(--font-body); color: var(--ink); background: var(--paper); border: 1px solid transparent; border-radius: 6px;
+      padding: 8px 12px; cursor: pointer;
+    }
+    .btn:hover { background: #fff; }
+    .btn.ghost { background: transparent; color: var(--ink-2); border-color: var(--line); }
+    .btn.ghost:hover { color: var(--ink); border-color: var(--ink-2); }
+
+    .controls { display: grid; gap: 26px; }
+    .presets { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 8px; font: 700 13px var(--font-body); color: var(--ink);
+      background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px 6px 6px; cursor: pointer;
+    }
+    .chip:hover, .chip[aria-pressed=true] { border-color: var(--ink); }
+    .chip .sw { display: inline-flex; gap: 0; width: 22px; height: 22px; border-radius: 50%; overflow: hidden; }
+    .chip .sw i { flex: 1; }
+    .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px 18px; }
+    .swatch { display: grid; grid-template-columns: 36px 1fr; gap: 10px; align-items: center; }
+    .swatch input[type=color] { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 8px; padding: 0; background: none; cursor: pointer; }
+    .swatch input[type=color]::-webkit-color-swatch-wrapper { padding: 3px; }
+    .swatch input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
+    .swatch label { font-weight: 700; line-height: 1.1; }
+    .swatch small { display: block; color: var(--ink-2); font-weight: 400; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px 28px; align-items: center; }
+    .sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px 32px; }
+    .sliders .field label { flex: 0 0 130px; }
+    .sliders .field input { flex: 1; width: auto; }
+
+    /* cast */
+    .cast { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; background: var(--stage); border-radius: 6px; padding: 28px 12px 12px; }
+    .cast figure { margin: 0; display: grid; justify-items: center; gap: 6px; }
+    .cast svg { height: 190px; }
+    .cast figcaption { font: 600 12px/1.3 var(--font-body); color: rgba(255,255,255,0.8); text-align: center; }
+    .cast figcaption b { display: block; font-size: 14px; color: #fff; }
+
+    /* rhythm generator */
+    .gen { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px 40px; align-items: start; margin-top: 22px; }
+    .gen .grid-wrap { overflow-x: auto; padding-bottom: 6px; }
+    .grid { display: grid; grid-template-columns: 64px repeat(var(--steps), minmax(12px, 30px)); gap: 3px; align-items: center; min-width: 560px; }
+    .grid .lab { font: 700 12px/1 var(--font-body); color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.06em; }
+    .grid .cell {
+      aspect-ratio: 1; border-radius: 4px; border: 0; padding: 0; cursor: pointer;
+      background: color-mix(in oklch, var(--voice) calc(var(--v) * 100%), var(--paper-2));
+      outline: 1px solid transparent; outline-offset: -1px;
+    }
+    .grid .cell.beat { outline-color: color-mix(in oklch, var(--ink) 18%, transparent); }
+    .grid .cell.on { outline-color: var(--hot); outline-width: 2px; }
+    .grid .cell:hover { filter: brightness(0.92); }
+    .grid .head { height: 6px; border-radius: 3px; background: var(--line); }
+    .grid .head.beat { background: var(--ink-2); }
+    .grid .head.strong { background: var(--ink); height: 9px; }
+    .grid .head.on { background: var(--hot); }
+    .grid .num { font: 600 11px/1 var(--font-body); color: var(--ink-2); text-align: center; }
+    .gen .controls { gap: 16px; }
+    .gen .field label { flex: 0 0 96px; }
+    .gen .field input[type=range] { flex: 1; width: auto; }
+    .gen .field .v { min-width: 4ch; }
+    .gen .presets .chip { padding: 6px 12px; }
+    .gen .generate { display: flex; gap: 12px; align-items: center; }
+    .gen .generate .btn { white-space: nowrap; background: var(--ink); color: var(--paper); }
+    .gen .generate .seed { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 13px; }
+    .check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+    .check input { accent-color: var(--hot); width: 16px; height: 16px; }
+    @media (max-width: 900px) { .gen { grid-template-columns: 1fr; } }
+
+    pre {
+      background: var(--paper-2); border-radius: 6px; padding: 18px 20px; overflow: auto; font-size: 13px; line-height: 1.55; margin: 0;
+    }
+    .notes { columns: 2; column-gap: 40px; max-width: 900px; }
+    .notes li { break-inside: avoid; margin-bottom: 10px; }
+    .notes ul { padding-left: 18px; margin: 0; }
+    @media (max-width: 760px) {
+      header { grid-template-columns: 1fr; }
+      .studio { grid-template-columns: 1fr; }
+      .preview { position: static; }
+      .notes { columns: 1; }
+      .beats { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Dancers for the metrical trajectory task</h1>
+      <p class="muted">A candidate replacement for the two pulsing circles. Every dancer bobs on every beat. On the strong beats of its own meter it bobs harder, dips at the knees, and taps a foot. Left feels the beat in twos, right in threes.</p>
+    </div>
+    <p class="muted"><span class="kbd">space</span> play / stop</p>
+  </header>
+
+  <div class="stage" id="stage">
+    <div class="slot" id="slotL" style="left: 27%"></div>
+    <div class="slot" id="slotR" style="left: 73%"></div>
+    <span class="tag l" id="tagL">duple · every 2nd beat</span>
+    <span class="tag r" id="tagR">triple · every 3rd beat</span>
+  </div>
+  <div class="transport">
+    <button class="play" id="play">Play</button>
+    <div class="field"><label for="bpm">Tempo</label><input type="range" id="bpm" min="60" max="180" step="1" value="120" /><span class="v" id="bpmV">120</span></div>
+    <div class="field"><label for="vol">Volume</label><input type="range" id="vol" min="0" max="1" step="0.01" value="0.5" /></div>
+    <div class="beats" id="beats"></div>
+  </div>
+
+  <section>
+    <h2>Rhythm generator</h2>
+    <p class="lede muted">Four synthesized voices over a 12-beat cycle. Pick a preset, generate a pattern from the controls, or click cells to edit. The dancers always move to the beat grid, not to the pattern, which is the situation in the experiment: the audio is the stimulus and each dancer is a candidate reading of it.</p>
+    <div class="gen">
+      <div>
+        <div class="presets" id="rpresets"></div>
+        <div class="grid-wrap" style="margin-top: 18px"><div class="grid" id="grid"></div></div>
+      </div>
+      <div class="controls">
+        <div class="field"><span style="flex: 0 0 96px">Meter</span>
+          <div class="seg" id="gmeter">
+            <button data-v="2" aria-pressed="true">duple</button>
+            <button data-v="3" aria-pressed="false">triple</button>
+            <button data-v="0" aria-pressed="false">ambiguous</button>
+          </div>
+        </div>
+        <div class="field"><span style="flex: 0 0 96px">Subdivision</span>
+          <div class="seg" id="gsub">
+            <button data-v="1" aria-pressed="false">1</button>
+            <button data-v="2" aria-pressed="true">2</button>
+            <button data-v="3" aria-pressed="false">3</button>
+            <button data-v="4" aria-pressed="false">4</button>
+          </div>
+        </div>
+        <div class="field"><label for="gdensity">Density</label><input type="range" id="gdensity" min="0" max="1" step="0.05" value="0.7" /><span class="v">0.70</span></div>
+        <div class="field"><label for="gsync">Syncopation</label><input type="range" id="gsync" min="0" max="1" step="0.05" value="0.15" /><span class="v">0.15</span></div>
+        <div class="field"><label for="gswing">Swing</label><input type="range" id="gswing" min="0" max="1" step="0.05" value="0" /><span class="v">0.00</span></div>
+        <label class="check"><input type="checkbox" id="gclick" checked /> Woodblock on every beat</label>
+        <div class="generate">
+          <button class="btn" id="generate">Generate new pattern</button>
+          <span class="seed" id="seedV"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Character studio</h2>
+    <p class="lede muted">Colors are the main knob for making characters. Hair and eyes are cheap extras for silhouette variety. Everything you set here also applies to the meter you assign.</p>
+    <div class="studio">
+      <div class="preview">
+        <div id="previewSlot"></div>
+        <div class="actions">
+          <button class="btn" id="toLeft">Put on stage, left</button>
+          <button class="btn" id="toRight">Put on stage, right</button>
+        </div>
+      </div>
+      <div class="controls">
+        <div>
+          <h3>Presets</h3>
+          <div class="presets" id="presets"></div>
+        </div>
+        <div>
+          <h3>Clothing and features</h3>
+          <div class="swatches" id="swatches"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="hair">Hair</label><select id="hair"></select></div>
+          <div class="field"><label for="eyes">Eyes</label><select id="eyes"></select></div>
+          <div class="field"><label for="foot">Tapping foot</label><select id="foot"><option value="right">right</option><option value="left">left</option></select></div>
+          <div class="field"><label for="meter">Feels the beat in</label><select id="meter"><option value="2">twos (duple)</option><option value="3">threes (triple)</option><option value="4">fours</option></select></div>
+          <button class="btn ghost" id="random">Surprise me</button>
+        </div>
+        <div>
+          <h3>Motion (applies to everyone)</h3>
+          <div class="sliders" id="sliders"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cast lineup</h2>
+    <p class="lede muted">Six presets from the same rig, alternating duple and triple so you can compare the two dances side by side.</p>
+    <div class="cast" id="cast"></div>
+  </section>
+
+  <section>
+    <h2>How it plugs in</h2>
+    <p class="lede muted">Both modules are now wired into the experiment. Dancers are posed from the same fractional beat time the plugin already computes each frame. The rhythm is a per-phase pattern from config.js, scheduled by rhythm.js on the audio clock, with every hit logged in the trial data.</p>
+<pre><code>// What plugin-metrical-trajectory.js now does, trimmed to the essentials.
+const left  = new Dancer({ meter: 2, ...CONFIG.CHARACTERS.left,  motion: CONFIG.DANCER_MOTION });
+const right = new Dancer({ meter: 3, ...CONFIG.CHARACTERS.right, motion: CONFIG.DANCER_MOTION });
+
+const player = new Rhythm.Player(audioContext, masterGain, { voiceGain: CONFIG.VOICE_GAINS });
+const sequencer = new Rhythm.Sequencer(player, {
+  startTime, period,
+  patternAt: (beat) => beat >= cueStart ? patterns[cuedMeter] : patterns.ambiguous,  // phase -> pattern
+  endBeat: totalBeats,
+});
+setInterval(() => onsets.push(...sequencer.schedule(audioContext.currentTime + 0.1)), 25);
+
+function frame() {
+  const tBeats = (audioNow() - startTime) / period;
+  left.update(tBeats);
+  right.update(tBeats);
+  requestAnimationFrame(frame);
+}</code></pre>
+  </section>
+
+  <section>
+    <h2>Things to decide</h2>
+    <div class="notes muted">
+      <ul>
+        <li><b>Salience.</b> Strong beats now carry three signals (big bob, knee dip, foot tap). The circles only changed size. If gaze during the ambiguous phase parks on whichever dancer moves more, tune the motion sliders until the two look equally busy per 6-beat window, or move the tap to every beat and keep only the bob difference.</li>
+        <li><b>Tap timing.</b> The toe rises over the half beat before a strong beat and lands at the beat onset. That anticipation is what makes it read as dancing rather than reacting, but it also previews the strong beat visually. Say if you would rather it landed cold.</li>
+        <li><b>Rendering.</b> The plugin draws on a canvas. Dancers are SVG DOM elements, so they would sit in absolutely positioned divs over (or instead of) the canvas. The clock and beat logic do not change.</li>
+        <li><b>Generator scope.</b> The rhythm generator is for exploring how the dancers read against richer stimuli. The plugin keeps its own single-tone scheduler; if a preset here turns out to be a better cue than the +6 dB accent, the voice synths port over as-is since they use the same clock and lookahead.</li>
+        <li><b>Identity.</b> Randomizing which character goes on which side per trial is free. Keeping two fixed characters for the whole session is also free. Either way the dance is identical across characters; only the meter differs.</li>
+      </ul>
+    </div>
+  </section>
+
+<script>
+  // ---- presets ----------------------------------------------------------------------------------
+  const PRESETS = [
+    { name: "Juniper", hair: "puff", eyes: "closed", colors: { skin: "#a8673c", hair: "#1e1512", shirt: "#3d7a6b", accent: "#f2d16b", pants: "#334a6e", shoes: "#d94b3d", headphones: "#f3efe6" } },
+    { name: "Otto", hair: "swoop", eyes: "open", colors: { skin: "#f0c9a8", hair: "#d9782a", shirt: "#2f3f6b", accent: "#f3efe6", pants: "#c9b48a", shoes: "#f3efe6", headphones: "#25211f" } },
+    { name: "Priya", hair: "bun", eyes: "wink", colors: { skin: "#8a5a3a", hair: "#241a17", shirt: "#c43d7a", accent: "#f7b1cf", pants: "#2c2f45", shoes: "#2fa39a", headphones: "#e5b64a" } },
+    { name: "Bram", hair: "spiky", eyes: "open", colors: { skin: "#e8b995", hair: "#1c1a1a", shirt: "#6d7a3f", accent: "#e9e1c6", pants: "#6e2b3a", shoes: "#25211f", headphones: "#d94b3d" } },
+    { name: "Kiko", hair: "buzz", eyes: "closed", colors: { skin: "#d19a6e", hair: "#2fa39a", shirt: "#f2c841", accent: "#25211f", pants: "#5b3e8a", shoes: "#f28aa6", headphones: "#f3efe6" } },
+    { name: "Sol", hair: "none", eyes: "closed", colors: { skin: "#5e3a26", hair: "#1e1512", shirt: "#e0563c", accent: "#f3efe6", pants: "#6fa3d6", shoes: "#8a5a3a", headphones: "#25211f" } },
+  ];
+  const PARTS = [
+    ["shirt", "Shirt"], ["accent", "Shirt stripe"], ["pants", "Pants"], ["shoes", "Shoes"],
+    ["headphones", "Headphones"], ["skin", "Skin"], ["hair", "Hair"],
+  ];
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const $ = (id) => document.getElementById(id);
+
+  // ---- dancers on the page --------------------------------------------------------------------------
+  const dancers = []; // everything that should move with the clock
+  function make(spec, meter, parent) {
+    const d = new Dancer({ ...clone(spec), meter });
+    parent.appendChild(d.el);
+    dancers.push(d);
+    return d;
+  }
+  let stageL = make(PRESETS[0], 2, $("slotL"));
+  let stageR = make(PRESETS[1], 3, $("slotR"));
+  const preview = make(PRESETS[2], 2, $("previewSlot"));
+
+  PRESETS.forEach((p, i) => {
+    const fig = document.createElement("figure");
+    const meter = i % 2 === 0 ? 2 : 3;
+    make(p, meter, fig);
+    const cap = document.createElement("figcaption");
+    cap.innerHTML = `<b>${p.name}</b>${meter === 2 ? "in twos" : "in threes"}`;
+    fig.appendChild(cap);
+    $("cast").appendChild(fig);
+  });
+
+  // ---- rhythm patterns ------------------------------------------------------------------------------
+  // The pattern model, drum-voice synths, and the beat-based scheduler live in rhythm.js (global
+  // Rhythm), shared with the jsPsych plugin. This page just wires it up.
+  const BEATS = Rhythm.BEATS;
+  const VOICE_LABELS = { kick: "Kick", snare: "Snare", hat: "Hat", block: "Block" };
+  const VOICE_COLOR = { kick: "oklch(62% 0.19 35)", snare: "oklch(30% 0.03 60)", hat: "oklch(60% 0.05 220)", block: "oklch(55% 0.12 150)" };
+
+  // ---- clock and audio --------------------------------------------------------------------------------
+  // Same approach as the plugin: events scheduled on the AudioContext clock in a lookahead loop,
+  // visuals drawn each frame from the audio output time. No setTimeout-driven animation.
+  let ctx = null, master = null, player = null, sequencer = null;
+  let playing = false, period = 0.5, schedId = null, rafId = null;
+  let pattern = Rhythm.PRESETS[0].make();
+
+  function schedule() {
+    if (sequencer) sequencer.schedule(ctx.currentTime + 0.1);
+  }
+  function currentBeats() { return sequencer.beatsAt(Rhythm.audioNow(ctx)); }
+
+  const beatDots = [];
+  for (let i = 0; i < BEATS; i++) { const s = document.createElement("i"); $("beats").appendChild(s); beatDots.push(s); }
+  function paintDots(beat) {
+    beatDots.forEach((s, i) => {
+      s.classList.toggle("on", beat >= 0 && i === ((beat % BEATS) + BEATS) % BEATS);
+      s.classList.toggle("strong", pattern.meter > 0 && i % pattern.meter === 0);
+    });
+  }
+  let lastStep = -1;
+  function frame() {
+    const t = currentBeats();
+    for (const d of dancers) d.update(t);
+    paintDots(Math.floor(t));
+    paintPlayhead(Math.floor(t * pattern.sub) % (BEATS * pattern.sub));
+    rafId = requestAnimationFrame(frame);
+  }
+  function play() {
+    if (!ctx) {
+      ctx = new AudioContext({ latencyHint: "interactive" });
+      master = ctx.createGain();
+      master.gain.value = +$("vol").value;
+      master.connect(ctx.destination);
+      player = new Rhythm.Player(ctx, master);
+    }
+    ctx.resume().then(() => {
+      playing = true;
+      sequencer = new Rhythm.Sequencer(player, {
+        startTime: ctx.currentTime + 0.2,
+        period,
+        patternAt: () => pattern,
+      });
+      schedule();
+      schedId = setInterval(schedule, 25);
+      rafId = requestAnimationFrame(frame);
+      $("play").textContent = "Stop";
+    });
+  }
+  function stop() {
+    playing = false;
+    clearInterval(schedId);
+    cancelAnimationFrame(rafId);
+    for (const d of dancers) d.update(0);
+    paintDots(-1);
+    paintPlayhead(-1);
+    $("play").textContent = "Play";
+  }
+  $("play").addEventListener("click", () => (playing ? stop() : play()));
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Space" && !/INPUT|SELECT|BUTTON/.test(e.target.tagName)) { e.preventDefault(); playing ? stop() : play(); }
+  });
+  $("bpm").addEventListener("input", (e) => {
+    const newPeriod = 60 / +e.target.value;
+    $("bpmV").textContent = e.target.value;
+    if (playing) sequencer.retime(newPeriod, Rhythm.audioNow(ctx));
+    period = newPeriod;
+  });
+  $("vol").addEventListener("input", (e) => { if (master) master.gain.value = +e.target.value; });
+
+  // ---- pattern grid -----------------------------------------------------------------------------------
+  let cells = {}; // voice -> array of buttons
+  let headCells = [];
+  function setPattern(p) {
+    pattern = p;
+    buildGrid();
+    paintDots(playing ? Math.floor(currentBeats()) : -1);
+    for (const b of $("gmeter").children) b.setAttribute("aria-pressed", +b.dataset.v === p.meter);
+    for (const b of $("gsub").children) b.setAttribute("aria-pressed", +b.dataset.v === p.sub);
+    $("gswing").value = p.swing; $("gswing").nextElementSibling.textContent = p.swing.toFixed(2);
+  }
+  function buildGrid() {
+    const n = BEATS * pattern.sub;
+    const grid = $("grid");
+    grid.innerHTML = "";
+    grid.style.setProperty("--steps", n);
+    cells = {}; headCells = []; lastStep = -1;
+    grid.appendChild(Object.assign(document.createElement("span"), { className: "lab" }));
+    for (let i = 0; i < n; i++) {
+      const h = document.createElement("div");
+      h.className = "head" + (i % pattern.sub === 0 ? " beat" : "") + (Rhythm.metricWeight(i, pattern.sub, pattern.meter) >= 3 ? " strong" : "");
+      grid.appendChild(h); headCells.push(h);
+    }
+    for (const k of Rhythm.VOICES) {
+      const label = VOICE_LABELS[k];
+      grid.appendChild(Object.assign(document.createElement("span"), { className: "lab", textContent: label }));
+      cells[k] = [];
+      for (let i = 0; i < n; i++) {
+        const c = document.createElement("button");
+        c.className = "cell" + (i % pattern.sub === 0 ? " beat" : "");
+        c.style.setProperty("--voice", VOICE_COLOR[k]);
+        c.style.setProperty("--v", pattern.voices[k][i]);
+        c.title = `${label}, beat ${Math.floor(i / pattern.sub) + 1}` + (pattern.sub > 1 ? ` step ${(i % pattern.sub) + 1}` : "");
+        c.addEventListener("click", () => {
+          const v = pattern.voices[k][i];
+          pattern.voices[k][i] = v === 0 ? 1 : v >= 0.9 ? 0.5 : 0; // rest -> loud -> soft -> rest
+          c.style.setProperty("--v", pattern.voices[k][i]);
+          markRhythmPreset(-1);
+        });
+        grid.appendChild(c); cells[k].push(c);
+      }
+    }
+    grid.appendChild(Object.assign(document.createElement("span"), { className: "lab" }));
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement("span");
+      s.className = "num"; s.textContent = i % pattern.sub === 0 ? Math.floor(i / pattern.sub) + 1 : "";
+      grid.appendChild(s);
+    }
+  }
+  function paintPlayhead(step) {
+    if (step === lastStep) return;
+    const set = (i, on) => { if (i < 0) return; headCells[i]?.classList.toggle("on", on); for (const k in cells) cells[k][i]?.classList.toggle("on", on); };
+    set(lastStep, false); set(step, true); lastStep = step;
+  }
+
+  // ---- generator controls -----------------------------------------------------------------------------
+  let seed = 1;
+  const gen = { meter: 2, sub: 2 };
+  const genParams = () => ({
+    meter: gen.meter, sub: gen.sub, seed,
+    density: +$("gdensity").value, syncopation: +$("gsync").value, swing: +$("gswing").value, click: $("gclick").checked,
+  });
+  function regenerate() { setPattern(Rhythm.generate(genParams())); $("seedV").textContent = "seed " + seed; markRhythmPreset(-1); }
+
+  const rhythmBtns = Rhythm.PRESETS.map((p, i) => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = p.name; b.title = p.note;
+    b.addEventListener("click", () => { const pat = p.make(); gen.meter = pat.meter; gen.sub = pat.sub; $("gclick").checked = pat.voices.block.some((v) => v > 0); setPattern(pat); markRhythmPreset(i); $("seedV").textContent = p.note; });
+    $("rpresets").appendChild(b);
+    return b;
+  });
+  function markRhythmPreset(i) { rhythmBtns.forEach((b, j) => b.setAttribute("aria-pressed", i === j)); }
+
+  $("gmeter").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { gen.meter = +b.dataset.v; regenerate(); } });
+  $("gsub").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { gen.sub = +b.dataset.v; regenerate(); } });
+  for (const id of ["gdensity", "gsync"]) $(id).addEventListener("input", (e) => { e.target.nextElementSibling.textContent = (+e.target.value).toFixed(2); regenerate(); });
+  $("gswing").addEventListener("input", (e) => { e.target.nextElementSibling.textContent = (+e.target.value).toFixed(2); pattern.swing = +e.target.value; });
+  $("gclick").addEventListener("change", () => {
+    for (let b = 0; b < BEATS; b++) pattern.voices.block[b * pattern.sub] = $("gclick").checked ? 0.7 : 0;
+    buildGrid(); markRhythmPreset(-1);
+  });
+  $("generate").addEventListener("click", () => { seed = Math.floor(Math.random() * 1e6); regenerate(); });
+
+  setPattern(pattern); markRhythmPreset(0); $("seedV").textContent = Rhythm.PRESETS[0].note;
+
+  // ---- studio controls ----------------------------------------------------------------------------------
+  let current = clone(PRESETS[2]);
+
+  const presetBtns = PRESETS.map((p, i) => {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.innerHTML = `<span class="sw"><i style="background:${p.colors.shirt}"></i><i style="background:${p.colors.pants}"></i><i style="background:${p.colors.shoes}"></i></span>${p.name}`;
+    b.addEventListener("click", () => { applySpec(clone(p)); markPreset(i); });
+    $("presets").appendChild(b);
+    return b;
+  });
+  function markPreset(i) { presetBtns.forEach((b, j) => b.setAttribute("aria-pressed", i === j)); }
+
+  const colorInputs = {};
+  for (const [key, label] of PARTS) {
+    const w = document.createElement("div");
+    w.className = "swatch";
+    w.innerHTML = `<input type="color" id="c-${key}" /><label for="c-${key}">${label}</label>`;
+    const input = w.querySelector("input");
+    input.addEventListener("input", () => { current.colors[key] = input.value; preview.setColors({ [key]: input.value }); markPreset(-1); });
+    colorInputs[key] = input;
+    $("swatches").appendChild(w);
+  }
+  for (const h of Dancer.HAIR_STYLES) $("hair").add(new Option(h, h));
+  for (const e of Dancer.EYE_STYLES) $("eyes").add(new Option(e, e));
+  $("hair").addEventListener("change", (e) => { current.hair = e.target.value; preview.setHair(current.hair); markPreset(-1); });
+  $("eyes").addEventListener("change", (e) => { current.eyes = e.target.value; preview.setEyes(current.eyes); markPreset(-1); });
+  $("foot").addEventListener("change", (e) => { current.tapFoot = e.target.value; preview.setTapFoot(current.tapFoot); });
+  $("meter").addEventListener("change", (e) => preview.setMeter(+e.target.value));
+
+  function applySpec(spec) {
+    current = spec;
+    preview.setColors(spec.colors).setHair(spec.hair).setEyes(spec.eyes).setTapFoot(spec.tapFoot || "right");
+    for (const [key] of PARTS) colorInputs[key].value = spec.colors[key];
+    $("hair").value = spec.hair;
+    $("eyes").value = spec.eyes;
+    $("foot").value = spec.tapFoot || "right";
+  }
+  applySpec(current);
+  markPreset(2);
+
+  $("random").addEventListener("click", () => {
+    applySpec(Dancer.random());
+    markPreset(-1);
+  });
+
+  function putOnStage(side) {
+    const old = side === "left" ? stageL : stageR;
+    const d = new Dancer({ ...clone(current), meter: old.meter });
+    old.el.replaceWith(d.el);
+    dancers[dancers.indexOf(old)] = d;
+    d.update(old.t);
+    if (side === "left") stageL = d; else stageR = d;
+  }
+  $("toLeft").addEventListener("click", () => putOnStage("left"));
+  $("toRight").addEventListener("click", () => putOnStage("right"));
+
+  // ---- motion sliders -----------------------------------------------------------------------------------
+  const SLIDERS = [
+    ["weakBob", "Every-beat bob", 0, 10, 0.5], ["strongBob", "Strong-beat bob", 0, 16, 0.5], ["dip", "Knee dip", 0, 12, 0.5],
+    ["tap", "Toe lift (°)", 0, 45, 1], ["armSwing", "Arm swing (°)", 0, 20, 1], ["tilt", "Head tilt (°)", 0, 12, 0.5],
+  ];
+  for (const [key, label, min, max, step] of SLIDERS) {
+    const w = document.createElement("div");
+    w.className = "field";
+    w.innerHTML = `<label for="m-${key}">${label}</label><input type="range" id="m-${key}" min="${min}" max="${max}" step="${step}" value="${Dancer.DEFAULT_MOTION[key]}" /><span class="v">${Dancer.DEFAULT_MOTION[key]}</span>`;
+    const input = w.querySelector("input"), v = w.querySelector(".v");
+    input.addEventListener("input", () => {
+      v.textContent = input.value;
+      Dancer.DEFAULT_MOTION[key] = +input.value; // so dancers made later pick it up too
+      for (const d of dancers) d.setMotion({ [key]: +input.value });
+    });
+    $("sliders").appendChild(w);
+  }
+</script>
+</body>
+</html>
