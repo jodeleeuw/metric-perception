@@ -365,7 +365,7 @@ var jsPsychMetricalTrajectory = (function (jspsych) {
       };
 
       const k = cfg.CHOICE_KEYS;
-      const prompt = `Which ${dancersMode ? "dancer" : "shape"} fits the rhythm better? Click it, or press ${k.left.toUpperCase()} (left) / ${k.right.toUpperCase()} (right).`;
+      const prompt = "Who is listening to this music?";
 
       const frame = () => {
         const t = audioNow() - startTime;
