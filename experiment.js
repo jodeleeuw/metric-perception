@@ -130,15 +130,14 @@ if (USE_EYETRACKING) {
 }
 
 const k = CONFIG.CHOICE_KEYS;
-const stimulusNoun = CONFIG.VISUAL_MODE === "dancers" ? "two characters dancing to a rhythm" : "two circles that pulse in time with a rhythm";
-const choiceVerb = CONFIG.VISUAL_MODE === "dancers" ? "dancer whose dancing fit the rhythm better" : "shape whose movement fit the rhythm better";
+const stimulusNoun = CONFIG.VISUAL_MODE === "dancers" ? "two characters wearing headphones, dancing" : "two circles pulsing";
 timeline.push({
   type: jsPsychHtmlButtonResponse,
-  stimulus: `<p>You will see ${stimulusNoun}.</p>
-    <p>Watch them while the rhythm plays.</p>
-    <p>After a moment, a question appears. Whenever you are ready, choose the ${choiceVerb}:
-    click it, or press <b>${k.left.toUpperCase()}</b> for left and <b>${k.right.toUpperCase()}</b> for right.
-    The rhythm keeps playing until you choose.</p>
+  stimulus: `<p>You will see ${stimulusNoun} while you hear some music.</p>
+    <p>Only one of them is listening to the music you hear. Watch them while the music plays.</p>
+    <p>After a moment, the question <i>Who is listening to this music?</i> appears. Whenever you are ready,
+    click the one who is listening, or press <b>${k.left.toUpperCase()}</b> for left and <b>${k.right.toUpperCase()}</b> for right.
+    The music keeps playing until you choose.</p>
     <p>We will start with two practice trials.</p>`,
   choices: ["Start practice"],
   // A click is a user gesture, so the AudioContext can start here.
